@@ -1,10 +1,9 @@
 #!/bin/bash
 
-
-
 # Check for --dry-run and --output-file arguments
 dry_run=false
 output_file=""
+search_keyword="instana"
 
 for arg in "$@"; do
     case $arg in
@@ -30,7 +29,7 @@ fi
 if [[ -n $output_file ]]; then
 
     # Write that we are going to use a file
-    echo "Found Instana labels, annotations and init-containers will be written to the $output_file"
+    echo "Found labels, annotations and init-containers will be written to the $output_file"
 
     # Write the title line to the output file
     echo "FoundTrace,Project,OwnerKind,OwnerName,Pod,Label/Annotation/InitContainerImage" > "$output_file"
@@ -39,7 +38,7 @@ fi
 echo ""
 
 # Print message
-echo "Scanning Projects for Labels & Annotations"
+echo "Scanning Projects for Labels & Annotations containing $search_keyword"
 
 # Iterate through all projects
 for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
@@ -48,9 +47,9 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
         # Get project labels
         labels=$(oc get project "$project" -o jsonpath='{.metadata.labels}' | jq -r 'to_entries[] | "\(.key):\(.value)"')
 
-        # Check for labels containing "instana"
+        # Check for labels containing "$search_keyword"
         while IFS= read -r label; do
-            if [[ $label == *instana* ]]; then
+            if [[ $label == *$search_keyword* ]]; then
                 if [[ -n $output_file ]]; then
                     # Write to output file in comma-separated format
                     echo "LABEL,$project,-,-,-,$label" >> "$output_file"
@@ -71,9 +70,9 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
         # Get project annotations
         annotations=$(oc get project "$project" -o jsonpath='{.metadata.annotations}' | jq -r 'to_entries[] | "\(.key):\(.value)"')
 
-        # Check for annotations containing "instana"
+        # Check for annotations containing "$search_keyword"
         while IFS= read -r annotation; do
-            if [[ $annotation == *instana* ]]; then
+            if [[ $annotation == *$search_keyword* ]]; then
                 if [[ -n $output_file ]]; then
                     # Write to output file in comma-separated format
                     echo "ANNOTATION,$project,-,-,-,$annotation" >> "$output_file"
@@ -96,7 +95,7 @@ done
 echo ""
 
 # Print message
-echo "Scanning Pods for Labels & Annotations"
+echo "Scanning Pods for Labels & Annotations containing $search_keyword"
 
 # Iterate through all projects
 for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
@@ -123,6 +122,8 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                     )
 
+                    remove_from_the_owner=false
+
                     # If no ownerReference is found, set default values
                     if [[ -z $ownerReferenceKind ]]; then
                         ownerReferenceKind="-"
@@ -131,6 +132,7 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Check if the owner reference is a ReplicaSet and get the Deployment name
                         ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
                         ownerReferenceKind="Deployment"
+                        remove_from_the_owner=true
                     elif [ "$ownerReferenceKind" == "Job" ]; then
                         # Check if the owner reference is a Job and get the CronJob name if it exists
                         cronJobName=$(oc get job "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="CronJob")].name}')
@@ -139,6 +141,8 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                             ownerReferenceName="$cronJobName"
                             ownerReferenceKind="CronJob"
                         fi
+
+                        remove_from_the_owner=true
                     fi
 
                     if [[ -n $output_file ]]; then
@@ -150,6 +154,20 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Print project name, owner kind, owner name, pod name, and label in tab-separated format
                         echo -e "Label found:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
 
+                        # extract label key and label value
+                        IFS=":" read -r label_key label_value <<< "$label"
+
+                        oc patch pod $pod -n $project --type=json -p='[
+                            {"op": "remove", "path": "/metadata/labels/'$label_key'"}
+                        ]'
+
+                        # if we detect an owner, remove the labels from there too
+                        if [[ $remove_from_the_owner == true ]]; then
+                            oc patch $ownerReferenceKind $ownerReferenceName -n $project --type=json -p='[
+                                {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                            ]'
+                        fi
+
                         echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
@@ -160,10 +178,10 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
             # Get pod annotations
             annotations=$(oc get pod "$pod" -n "$project" -o jsonpath='{.metadata.annotations}' 2>/dev/null | jq -r 'to_entries[] | "\(.key):\(.value)"')
 
-            # Check for annotations containing "instana"
+            # Check for annotations containing "$search_keyword"
             while IFS= read -r annotation; do
 
-                if [[ $annotation == *instana* ]]; then
+                if [[ $annotation == *$search_keyword* ]]; then
 
                     # Try to find the kind and name of the owner from ownerReference
                     read -r ownerReferenceKind ownerReferenceName < <(
@@ -210,7 +228,7 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 done
 
 echo ""
-echo "Scanning Pods for Init Containers with 'instana' in Image Name"
+echo "Scanning Pods for Init Containers with '$search_keyword' in Image Name"
 
 # Iterate through all projects
 for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
@@ -225,10 +243,10 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
             # Get init container images
             init_images=$(oc get pod "$pod" -n "$project" -o jsonpath='{range .spec.initContainers[*]}{.image}{"\n"}{end}')
 
-            # Check for init container images containing "instana"
+            # Check for init container images containing "$search_keyword"
             while IFS= read -r image; do
 
-                if [[ $image == *instana* ]]; then
+                if [[ $image == *$search_keyword* ]]; then
 
                     # Try to find the kind and name of the owner from ownerReference
                     read -r ownerReferenceKind ownerReferenceName < <(
