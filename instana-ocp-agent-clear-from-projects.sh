@@ -1,0 +1,247 @@
+#!/bin/bash
+
+
+
+# Check for --dry-run and --output-file arguments
+dry_run=false
+output_file=""
+
+for arg in "$@"; do
+    case $arg in
+        --dry-run)
+            dry_run=true
+            ;;
+        --output-file=*)
+            output_file="${arg#*=}"
+            ;;
+    esac
+done
+
+echo ""
+
+if [[ $dry_run == false ]]; then
+    # Print warning if not in dry-run mode
+    echo -e "Warning: Execution is going to modify the resources in your OCP environment. If you want to list what resources are going to change, you can consider running the script using --dry-run!"
+else
+    # In dry-run mode, print a dry-run message
+    echo "Dry-run is started. This execution is not going to change resources in your OCP environment."
+fi
+
+if [[ -n $output_file ]]; then
+
+    # Write that we are going to use a file
+    echo "Found Instana labels, annotations and init-containers will be written to the $output_file"
+
+    # Write the title line to the output file
+    echo "FoundTrace,Project,OwnerKind,OwnerName,Pod,Label/Annotation/InitContainerImage" > "$output_file"
+fi
+
+echo ""
+
+# Print message
+echo "Scanning Projects for Labels & Annotations"
+
+# Iterate through all projects
+for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
+    # Skip projects starting with "openshift-"
+    if [[ $project != openshift* ]]; then
+        # Get project labels
+        labels=$(oc get project "$project" -o jsonpath='{.metadata.labels}' | jq -r 'to_entries[] | "\(.key):\(.value)"')
+
+        # Check for labels containing "instana"
+        while IFS= read -r label; do
+            if [[ $label == *instana* ]]; then
+                if [[ -n $output_file ]]; then
+                    # Write to output file in comma-separated format
+                    echo "LABEL,$project,-,-,-,$label" >> "$output_file"
+                fi
+
+                if [[ $dry_run == false ]]; then
+                    # Print project name and label in tab-separated format
+                    echo -e "$project\t$label"
+                else
+                    echo -e "\tDry-run: $project\t$label"
+                fi
+                break  # Break if we found a matching label
+            fi
+        done <<< "$labels"  # Process labels as newline-separated format
+
+        # Get project annotations
+        annotations=$(oc get project "$project" -o jsonpath='{.metadata.annotations}' | jq -r 'to_entries[] | "\(.key):\(.value)"')
+
+        # Check for annotations containing "instana"
+        while IFS= read -r annotation; do
+            if [[ $annotation == *instana* ]]; then
+                if [[ -n $output_file ]]; then
+                    # Write to output file in comma-separated format
+                    echo "ANNOTATION,$project,-,-,-,$annotation" >> "$output_file"
+                fi
+
+                if [[ $dry_run == false ]]; then
+                    # Print project name and annotation in tab-separated format
+                    echo -e "$project\t$annotation"
+                else
+                    echo -e "\tDry-run: $project\t$annotation"
+                fi
+                break  # Break if we found a matching annotation
+            fi
+        done <<< "$annotations"  # Process annotations as newline-separated format
+    fi
+done
+
+echo ""
+
+# Print message
+echo "Scanning Pods for Labels & Annotations"
+
+# Iterate through all projects
+for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
+    
+    # Skip namespaces starting with "openshift-"
+    if [[ $project != openshift* ]]; then
+
+        # Get pods with labels containing "instana"
+        pods=$(oc get pods -n "$project" -o jsonpath='{.items[*].metadata.name}' --no-headers)
+        
+        for pod in $pods; do
+            # Get pod labels
+            labels=$(oc get pod "$pod" -n "$project" -o jsonpath='{.metadata.labels}' 2>/dev/null | jq -r 'to_entries[] | "\(.key):\(.value)"')
+
+            # Check for labels containing "instana"
+            while IFS= read -r label; do
+
+                if [[ $label == *instana* ]]; then
+
+                    # Try to find the kind and name of the owner from ownerReference
+                    read -r ownerReferenceKind ownerReferenceName < <(
+                        oc get pod $pod -n $project -o jsonpath='{range .metadata.ownerReferences[*]}{.kind} {.name}{"\n"}{end}' | 
+awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Job" || $1 == "CronJob" {print $1, $2; exit}'
+
+                    )
+
+                    # If no ownerReference is found, set default values
+                    if [[ -z $ownerReferenceKind ]]; then
+                        ownerReferenceKind="-"
+                        ownerReferenceName="-"
+                    elif [ "$ownerReferenceKind" == "ReplicaSet" ]; then
+                        # Check if the owner reference is a ReplicaSet and get the Deployment name
+                        ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
+                        ownerReferenceKind="Deployment"
+                    fi
+
+                    if [[ -n $output_file ]]; then
+                        # Write to output file in comma-separated format
+                        echo "LABEL,$project,$ownerReferenceKind,$ownerReferenceName,$pod,$label" >> "$output_file"
+                    fi
+
+                    if [[ $dry_run == false ]]; then
+                        # Print project name, owner kind, owner name, pod name, and label in tab-separated format
+                        echo -e "$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                    else
+                        echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                    fi
+                fi
+            done <<< "$labels"  # Process labels as newline-separated format
+
+            # Get pod annotations
+            annotations=$(oc get pod "$pod" -n "$project" -o jsonpath='{.metadata.annotations}' 2>/dev/null | jq -r 'to_entries[] | "\(.key):\(.value)"')
+
+            # Check for annotations containing "instana"
+            while IFS= read -r annotation; do
+
+                if [[ $annotation == *instana* ]]; then
+
+                    # Try to find the kind and name of the owner from ownerReference
+                    read -r ownerReferenceKind ownerReferenceName < <(
+                        oc get pod $pod -n $project -o jsonpath='{range .metadata.ownerReferences[*]}{.kind} {.name}{"\n"}{end}' | 
+awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Job" || $1 == "CronJob" {print $1, $2; exit}'
+
+                    )
+
+                    # If no ownerReference is found, set default values
+                    if [[ -z $ownerReferenceKind ]]; then
+                        ownerReferenceKind="-"
+                        ownerReferenceName="-"
+                    elif [ "$ownerReferenceKind" == "ReplicaSet" ]; then
+                        # Check if the owner reference is a ReplicaSet and get the Deployment name
+                        ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
+                        ownerReferenceKind="Deployment"
+                    fi
+
+                    if [[ -n $output_file ]]; then
+                        # Write to output file in comma-separated format
+                        echo "ANNOTATION,$project,$ownerReferenceKind,$ownerReferenceName,$pod,$annotation" >> "$output_file"
+                    fi
+
+                    if [[ $dry_run == false ]]; then
+                        # Print project name, owner kind, owner name, pod name, and annotation in tab-separated format
+                        echo -e "$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+                    else
+                        echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+                    fi
+                fi
+            done <<< "$annotations"  # Process annotations as newline-separated format
+        done
+    fi
+done
+
+echo ""
+echo "Scanning Pods for Init Containers with 'instana' in Image Name"
+
+# Iterate through all projects
+for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
+    
+    # Skip namespaces starting with "openshift-"
+    if [[ $project != openshift* ]]; then
+
+        # Get pods in the project
+        pods=$(oc get pods -n "$project" -o jsonpath='{.items[*].metadata.name}' --no-headers)
+        
+        for pod in $pods; do
+            # Get init container images
+            init_images=$(oc get pod "$pod" -n "$project" -o jsonpath='{range .spec.initContainers[*]}{.image}{"\n"}{end}')
+
+            # Check for init container images containing "instana"
+            while IFS= read -r image; do
+
+                if [[ $image == *instana* ]]; then
+
+                    # Try to find the kind and name of the owner from ownerReference
+                    read -r ownerReferenceKind ownerReferenceName < <(
+                        oc get pod $pod -n $project -o jsonpath='{range .metadata.ownerReferences[*]}{.kind} {.name}{"\n"}{end}' | 
+awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Job" || $1 == "CronJob" {print $1, $2; exit}'
+
+                    )
+
+                    # If no ownerReference is found, set default values
+                    if [[ -z $ownerReferenceKind ]]; then
+                        ownerReferenceKind="-"
+                        ownerReferenceName="-"
+                    elif [ "$ownerReferenceKind" == "ReplicaSet" ]; then
+                        # Check if the owner reference is a ReplicaSet and get the Deployment name
+                        ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
+                        ownerReferenceKind="Deployment"
+                    fi
+
+                    if [[ -n $output_file ]]; then
+                        # Write to output file in comma-separated format
+                        echo "INIT-CONTAINER,$project,$ownerReferenceKind,$ownerReferenceName,$pod,$image" >> "$output_file"
+                    fi
+
+                    if [[ $dry_run == false ]]; then
+                        # Print project name, owner kind, owner name, pod name, and init container image in tab-separated format
+                        echo -e "$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+                    else
+                        echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+                    fi
+                fi
+            done <<< "$init_images"  # Process init container images as newline-separated format
+        done
+    fi
+done
+
+
+# Print a final message if output_file was used
+if [[ -n $output_file ]]; then
+    echo "Results have been written to $output_file."
+fi
