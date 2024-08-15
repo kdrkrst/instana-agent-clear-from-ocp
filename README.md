@@ -1,0 +1,1 @@
+# instana-agent-clear-from-ocp
