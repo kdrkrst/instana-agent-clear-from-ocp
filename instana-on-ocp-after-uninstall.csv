@@ -1,0 +1,12 @@
+FoundTrace,Project,OwnerKind,OwnerName,Pod,Label/Annotation/InitContainerImage
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-2lh9w,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-48sh5,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-4ctzs,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-4rdp4,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-5bt47,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-5vthm,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-6cd6n,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-74s7d,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-7m78l,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-7rxwk,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d
+INIT-CONTAINER,cpd-instance,CronJob,spark-hb-preload-jkg-image,spark-hb-preload-jkg-image-28729080-85pnw,icr.io/instana/instrumentation@sha256:0fb07fca994a3f7377184334c2f53d33cf15d85138e2e3a25e1eed7fedb6836d

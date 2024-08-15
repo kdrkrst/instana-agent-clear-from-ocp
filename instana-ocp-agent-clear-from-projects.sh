@@ -58,7 +58,9 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
 
                 if [[ $dry_run == false ]]; then
                     # Print project name and label in tab-separated format
-                    echo -e "$project\t$label"
+                    echo -e "Label found:\t\t$project\t$label"
+
+                    echo -e "Label removed:\t\t$project\t$label"
                 else
                     echo -e "\tDry-run: $project\t$label"
                 fi
@@ -79,7 +81,9 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
 
                 if [[ $dry_run == false ]]; then
                     # Print project name and annotation in tab-separated format
-                    echo -e "$project\t$annotation"
+                    echo -e "Annotation found:\t$project\t$annotation"
+
+                    echo -e "Annotation removed:\t$project\t$annotation"
                 else
                     echo -e "\tDry-run: $project\t$annotation"
                 fi
@@ -127,6 +131,14 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Check if the owner reference is a ReplicaSet and get the Deployment name
                         ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
                         ownerReferenceKind="Deployment"
+                    elif [ "$ownerReferenceKind" == "Job" ]; then
+                        # Check if the owner reference is a Job and get the CronJob name if it exists
+                        cronJobName=$(oc get job "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="CronJob")].name}')
+
+                        if [[ -n "$cronJobName" ]]; then
+                            ownerReferenceName="$cronJobName"
+                            ownerReferenceKind="CronJob"
+                        fi
                     fi
 
                     if [[ -n $output_file ]]; then
@@ -136,7 +148,9 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                     if [[ $dry_run == false ]]; then
                         # Print project name, owner kind, owner name, pod name, and label in tab-separated format
-                        echo -e "$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                        echo -e "Label found:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+
+                        echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
                     fi
@@ -166,6 +180,14 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Check if the owner reference is a ReplicaSet and get the Deployment name
                         ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
                         ownerReferenceKind="Deployment"
+                    elif [ "$ownerReferenceKind" == "Job" ]; then
+                        # Check if the owner reference is a Job and get the CronJob name if it exists
+                        cronJobName=$(oc get job "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="CronJob")].name}')
+                        
+                        if [[ -n "$cronJobName" ]]; then
+                            ownerReferenceName="$cronJobName"
+                            ownerReferenceKind="CronJob"
+                        fi
                     fi
 
                     if [[ -n $output_file ]]; then
@@ -175,7 +197,9 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                     if [[ $dry_run == false ]]; then
                         # Print project name, owner kind, owner name, pod name, and annotation in tab-separated format
-                        echo -e "$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+                        echo -e "Annotation found:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+
+                        echo -e "Annotation removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
                     fi
@@ -221,6 +245,14 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Check if the owner reference is a ReplicaSet and get the Deployment name
                         ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
                         ownerReferenceKind="Deployment"
+                    elif [ "$ownerReferenceKind" == "Job" ]; then
+                        # Check if the owner reference is a Job and get the CronJob name if it exists
+                        cronJobName=$(oc get job "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="CronJob")].name}')
+                        
+                        if [[ -n "$cronJobName" ]]; then
+                            ownerReferenceName="$cronJobName"
+                            ownerReferenceKind="CronJob"
+                        fi
                     fi
 
                     if [[ -n $output_file ]]; then
@@ -230,7 +262,9 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                     if [[ $dry_run == false ]]; then
                         # Print project name, owner kind, owner name, pod name, and init container image in tab-separated format
-                        echo -e "$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+                        echo -e "Init-container found:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+
+                        echo -e "Init-container removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
                     fi
