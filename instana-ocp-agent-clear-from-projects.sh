@@ -1,8 +1,16 @@
 #!/bin/bash
 
-# Check for --dry-run and --output-file arguments
+# Init args
+# If true, goes over resources. Does not make modifications.
 dry_run=false
+
+# If given, creates a CSV file containing matched resources
 output_file=""
+
+# If true, performs changes without asking a confirmation for each change. Effective if dyr_run is not true
+no_confirm=false
+
+# Init vars
 search_keyword="instana"
 
 for arg in "$@"; do
@@ -12,6 +20,9 @@ for arg in "$@"; do
             ;;
         --output-file=*)
             output_file="${arg#*=}"
+            ;;
+        --no-confirm)
+            no_confirm=true
             ;;
     esac
 done
@@ -49,7 +60,10 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
 
         # Check for labels containing "$search_keyword"
         while IFS= read -r label; do
+
             if [[ $label == *$search_keyword* ]]; then
+
+                # write to the file
                 if [[ -n $output_file ]]; then
                     # Write to output file in comma-separated format
                     echo "LABEL,$project,-,-,-,$label" >> "$output_file"
@@ -59,7 +73,27 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
                     # Print project name and label in tab-separated format
                     echo -e "Label found:\t\t$project\t$label"
 
-                    echo -e "Label removed:\t\t$project\t$label"
+                    if [[ $no_confirm == false ]]; then
+
+                        read -rp "Are you sure you want to remove the label ? (Y/N): " confirm </dev/tty
+
+                        if [[ $confirm == "Y" || $confirm == "y" ]]; then
+                            # Perform the delete operation
+                            
+                            # extract label key and label value
+                            IFS=":" read -r label_key label_value <<< "$label"
+
+                            oc label namespace "$project" "$label_key-"
+
+                            echo -e "Label removed:\t\t$project\t$label"
+                            echo ""
+                        else
+                            echo "Skipping the remove operation of the $label on project: $project"
+                        fi
+                    else
+                        # Directly perform the delete operation without confirmation
+                        echo "Removing label/init-container/annotation..."
+                    fi
                 else
                     echo -e "\tDry-run: $project\t$label"
                 fi
