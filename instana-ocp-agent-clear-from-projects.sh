@@ -86,7 +86,7 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
                 else
                     echo -e "\tDry-run: $project\t$annotation"
                 fi
-                break  # Break if we found a matching annotation
+                #break  # Break if we found a matching annotation
             fi
         done <<< "$annotations"  # Process annotations as newline-separated format
     fi
