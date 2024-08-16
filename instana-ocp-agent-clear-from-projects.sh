@@ -312,10 +312,55 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Print project name, owner kind, owner name, pod name, and annotation in tab-separated format
                         echo -e "Annotation found:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
 
-                        echo -e "Annotation removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+                        if [[ $no_confirm == false ]]; then
+                            read -rp "Are you sure you want to remove the annotation from pod $pod and possibly from the owner? (Y/N): " confirm </dev/tty
+
+                            if [[ $confirm == "Y" || $confirm == "y" ]]; then
+                                # Extract annotation key and annotation value
+                                IFS=":" read -r annotation_key annotation_value <<< "$annotation"
+
+                                # Remove the annotation from the pod
+                                oc patch pod "$pod" -n "$project" --type=json -p='[
+                                    {"op": "remove", "path": "/metadata/annotations/'$annotation_key'"}
+                                ]'
+
+                                # If we detect an owner, remove the annotation from there too
+                                if [[ $remove_from_the_owner == true ]]; then
+                                    oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                        {"op": "remove", "path": "/spec/template/metadata/annotations/'$annotation_key'"}
+                                    ]'
+                                fi
+
+                                echo -e "Annotation removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+                                echo ""
+                            else
+                                echo "Skipping the remove operation of the $annotation on pod: $pod"
+                            fi
+                        else
+                            # Directly perform the delete operation without confirmation
+                            echo "Removing annotation from pod $pod and possibly from the owner..."
+                            
+                            # Extract annotation key and annotation value
+                            IFS=":" read -r annotation_key annotation_value <<< "$annotation"
+
+                            # Remove the annotation from the pod
+                            oc patch pod "$pod" -n "$project" --type=json -p='[
+                                {"op": "remove", "path": "/metadata/annotations/'$annotation_key'"}
+                            ]'
+
+                            # If we detect an owner, remove the annotation from there too
+                            if [[ $remove_from_the_owner == true ]]; then
+                                oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                    {"op": "remove", "path": "/spec/template/metadata/annotations/'$annotation_key'"}
+                                ]'
+                            fi
+
+                            echo -e "Annotation removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
+                        fi
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$annotation"
                     fi
+
                 fi
             done <<< "$annotations"  # Process annotations as newline-separated format
         done
