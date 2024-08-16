@@ -63,7 +63,7 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
                 else
                     echo -e "\tDry-run: $project\t$label"
                 fi
-                break  # Break if we found a matching label
+                #break  # Break if we found a matching label
             fi
         done <<< "$labels"  # Process labels as newline-separated format
 
