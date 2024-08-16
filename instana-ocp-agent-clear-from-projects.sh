@@ -218,24 +218,55 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Print project name, owner kind, owner name, pod name, and label in tab-separated format
                         echo -e "Label found:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
 
-                        # extract label key and label value
-                        IFS=":" read -r label_key label_value <<< "$label"
+                        if [[ $no_confirm == false ]]; then
+                            read -rp "Are you sure you want to remove the label from pod $pod and possibly from the owner? (Y/N): " confirm </dev/tty
 
-                        oc patch pod $pod -n $project --type=json -p='[
-                            {"op": "remove", "path": "/metadata/labels/'$label_key'"}
-                        ]'
+                            if [[ $confirm == "Y" || $confirm == "y" ]]; then
+                                # Extract label key and label value
+                                IFS=":" read -r label_key label_value <<< "$label"
 
-                        # if we detect an owner, remove the labels from there too
-                        if [[ $remove_from_the_owner == true ]]; then
-                            oc patch $ownerReferenceKind $ownerReferenceName -n $project --type=json -p='[
-                                {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                                # Remove the label from the pod
+                                oc patch pod "$pod" -n "$project" --type=json -p='[
+                                    {"op": "remove", "path": "/metadata/labels/'$label_key'"}
+                                ]'
+
+                                # If we detect an owner, remove the label from there too
+                                if [[ $remove_from_the_owner == true ]]; then
+                                    oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                        {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                                    ]'
+                                fi
+
+                                echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                                echo ""
+                            else
+                                echo "Skipping the remove operation of the $label on pod: $pod"
+                            fi
+                        else
+                            # Directly perform the delete operation without confirmation
+                            echo "Removing label from pod $pod and possibly from the owner..."
+                            
+                            # Extract label key and label value
+                            IFS=":" read -r label_key label_value <<< "$label"
+
+                            # Remove the label from the pod
+                            oc patch pod "$pod" -n "$project" --type=json -p='[
+                                {"op": "remove", "path": "/metadata/labels/'$label_key'"}
                             ]'
-                        fi
 
-                        echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                            # If we detect an owner, remove the label from there too
+                            if [[ $remove_from_the_owner == true ]]; then
+                                oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                    {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                                ]'
+                            fi
+
+                            echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                        fi
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
                     fi
+
                 fi
             done <<< "$labels"  # Process labels as newline-separated format
 
