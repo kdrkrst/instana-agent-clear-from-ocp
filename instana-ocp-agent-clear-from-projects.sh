@@ -92,7 +92,13 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
                         fi
                     else
                         # Directly perform the delete operation without confirmation
-                        echo "Removing label/init-container/annotation..."
+                        # extract label key and label value
+                        IFS=":" read -r label_key label_value <<< "$label"
+
+                        oc label namespace "$project" "$label_key-"
+
+                        echo -e "Label removed:\t\t$project\t$label"
+                        echo ""
                     fi
                 else
                     echo -e "\tDry-run: $project\t$label"
@@ -116,7 +122,31 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
                     # Print project name and annotation in tab-separated format
                     echo -e "Annotation found:\t$project\t$annotation"
 
-                    echo -e "Annotation removed:\t$project\t$annotation"
+                    if [[ $no_confirm == false ]]; then
+                        read -rp "Are you sure you want to remove the annotation? (Y/N): " confirm </dev/tty
+
+                        if [[ $confirm == "Y" || $confirm == "y" ]]; then
+                            # Perform the delete operation
+
+                            # extract annotation key and value
+                            IFS=":" read -r annotation_key annotation_value <<< "$annotation"
+
+                            oc annotate namespace "$project" "$annotation_key-"
+
+                            echo -e "Annotation removed:\t$project\t$annotation"
+                            echo ""
+                        else
+                            echo "Skipping the remove operation of the $annotation on project: $project"
+                        fi
+                    else
+                        # Directly perform the delete operation without confirmation
+                        IFS=":" read -r annotation_key annotation_value <<< "$annotation"
+
+                        oc annotate namespace "$project" "$annotation_key-"
+
+                        echo -e "Annotation removed:\t$project\t$annotation"
+                        echo ""
+                    fi
                 else
                     echo -e "\tDry-run: $project\t$annotation"
                 fi
