@@ -12,7 +12,8 @@ This script scans OpenShift projects and pods to identify resources associated w
 
 ### Options
 * `--dry-run`: Runs the script without making any changes, displaying the actions that would be taken.
-* `--output-file=<file>`: Writes the results to the specified file in CSV format.
+* `--output-file=<file>`: Writes the foundings to the specified file in CSV format.
+* `--no-confirm`: By default script is asking for confirmation before each modification on the resources, if it is not started using `--dry-run`. You can tell script to skip prompting confirmation.
 
 ## What Script Does
 * **Project Label** & Annotation Scan: Scans all non-system projects for labels and annotations containing the word "instana".
