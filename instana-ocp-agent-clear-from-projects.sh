@@ -395,6 +395,9 @@ for project in $(oc get projects -o jsonpath='{.items[*].metadata.name}'); do
             # Get init container images
             init_images=$(oc get pod "$pod" -n "$project" -o jsonpath='{range .spec.initContainers[*]}{.image}{"\n"}{end}')
 
+            # Initialize index to hold the index of the init container with the keyword
+            index=0
+
             # Check for init container images containing "$search_keyword"
             while IFS= read -r image; do
 
@@ -431,14 +434,44 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                     fi
 
                     if [[ $dry_run == false ]]; then
+
                         # Print project name, owner kind, owner name, pod name, and init container image in tab-separated format
                         echo -e "Init-container found:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+                        echo -e "Index of the init container: $index"
 
-                        echo -e "Init-container removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+                        if [[ $no_confirm == false ]]; then
+                            read -rp "Are you sure you want to remove the the init container? (Y/N): " confirm </dev/tty
+
+                            if [[ $confirm == "Y" || $confirm == "y" ]]; then
+                                # Perform the delete operation
+
+                                oc patch pod "$pod" -n "$project" --type='json' -p='[{"op": "remove", "path": "/spec/initContainers/'"$index"'"}]'
+                                echo "Removed init container with image $image from pod $pod in project $project"
+
+                                # Now, remove the same init container from the owner's template
+                                oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type='json' -p='[{"op": "remove", "path": "/spec/template/spec/initContainers/'"$index"'"}]'
+                                echo "Removed init container with image $image from $ownerReferenceKind $ownerReferenceName in project $project"
+
+                                echo ""
+                            else
+                                echo "Skipping the remove operation of the $annotation on project: $project"
+                            fi
+                        else
+                            # Directly perform the delete operation without confirmation
+                            
+                            echo -e "Init-container removed:\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
+
+                            echo -e "Annotation removed:\t$project\t$annotation"
+                            echo ""
+                        fi
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$image"
                     fi
                 fi
+
+                # Increment the index
+                index=$((index + 1))
+
             done <<< "$init_images"  # Process init container images as newline-separated format
         done
     fi
