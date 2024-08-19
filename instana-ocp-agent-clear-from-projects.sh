@@ -238,10 +238,20 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                                         {"op": "remove", "path": "/metadata/labels/'$label_key'"}
                                     ]'
 
-                                    # then remove from the template section of the owner
-                                    oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
-                                        {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
-                                    ]'
+                                    # Determine the correct path for the label removal based on the owner kind
+                                    if [[ "$ownerReferenceKind" == "CronJob" ]]; then
+                                        
+                                        # then remove from the template section of the owner
+                                        oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                            {"op": "remove", "path": "/spec/jobTemplate/spec/template/metadata/labels/'$label_key'"}
+                                        ]'
+                                    else
+                                        
+                                        # then remove from the template section of the owner
+                                        oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                            {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                                        ]'
+                                    fi
                                 fi
 
                                 echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
@@ -250,9 +260,9 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                                 echo "Skipping the remove operation of the $label on pod: $pod"
                             fi
                         else
-                            # Directly perform the delete operation without confirmation
-                            echo "Removing label from pod $pod and possibly from the owner..."
-                            
+
+                            # remove directly without prompting
+
                             # Extract label key and label value
                             IFS=":" read -r label_key label_value <<< "$label"
 
@@ -263,12 +273,30 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                             # If we detect an owner, remove the label from there too
                             if [[ $remove_from_the_owner == true ]]; then
+
+                                # first, remove from the owner's own labels
                                 oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
-                                    {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                                    {"op": "remove", "path": "/metadata/labels/'$label_key'"}
                                 ]'
+
+                                # Determine the correct path for the label removal based on the owner kind
+                                if [[ "$ownerReferenceKind" == "CronJob" ]]; then
+                                    
+                                    # then remove from the template section of the owner
+                                    oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                        {"op": "remove", "path": "/spec/jobTemplate/spec/template/metadata/labels/'$label_key'"}
+                                    ]'
+                                else
+                                    
+                                    # then remove from the template section of the owner
+                                    oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                        {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
+                                    ]'
+                                fi
                             fi
 
                             echo -e "Label removed:\t\t$project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
+                            echo ""
                         fi
                     else
                         echo -e "\tDry-Run: $project\t$ownerReferenceKind\t$ownerReferenceName\t$pod\t$label"
