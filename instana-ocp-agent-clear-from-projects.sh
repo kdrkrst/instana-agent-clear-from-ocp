@@ -232,6 +232,13 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                                 # If we detect an owner, remove the label from there too
                                 if [[ $remove_from_the_owner == true ]]; then
+
+                                    # first, remove from the owner's own labels
+                                    oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
+                                        {"op": "remove", "path": "/metadata/labels/'$label_key'"}
+                                    ]'
+
+                                    # then remove from the template section of the owner
                                     oc patch "$ownerReferenceKind" "$ownerReferenceName" -n "$project" --type=json -p='[
                                         {"op": "remove", "path": "/spec/template/metadata/labels/'$label_key'"}
                                     ]'
