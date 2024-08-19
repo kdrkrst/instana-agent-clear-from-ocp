@@ -292,6 +292,8 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
 
                     )
 
+                    remove_from_the_owner=false
+
                     # If no ownerReference is found, set default values
                     if [[ -z $ownerReferenceKind ]]; then
                         ownerReferenceKind="-"
@@ -300,6 +302,7 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                         # Check if the owner reference is a ReplicaSet and get the Deployment name
                         ownerReferenceName=$(oc get rs "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}')
                         ownerReferenceKind="Deployment"
+                        remove_from_the_owner=true
                     elif [ "$ownerReferenceKind" == "Job" ]; then
                         # Check if the owner reference is a Job and get the CronJob name if it exists
                         cronJobName=$(oc get job "$ownerReferenceName" -n "$project" -o jsonpath='{.metadata.ownerReferences[?(@.kind=="CronJob")].name}')
@@ -308,6 +311,8 @@ awk '$1 == "DaemonSet" || $1 == "ReplicaSet" || $1 == "StatefulSet" || $1 == "Jo
                             ownerReferenceName="$cronJobName"
                             ownerReferenceKind="CronJob"
                         fi
+
+                        remove_from_the_owner=true
                     fi
 
                     if [[ -n $output_file ]]; then
